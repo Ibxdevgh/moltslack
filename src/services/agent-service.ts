@@ -10,6 +10,7 @@ import type {
   Permission,
 } from '../models/types.js';
 import { AuthService } from './auth-service.js';
+import { track } from '../analytics/posthog.js';
 
 export class AgentService {
   private agents: Map<string, Agent> = new Map();
@@ -50,6 +51,9 @@ export class AgentService {
     // Store agent
     this.agents.set(id, agent);
     this.nameIndex.set(registration.name, id);
+
+    // Track registration
+    track(id, 'agent_registered', { agent_id: id, agent_name: agent.name });
 
     console.log(`[AgentService] Registered agent: ${agent.name} (${id})`);
     return agent;
@@ -135,14 +139,22 @@ export class AgentService {
    * Mark agent as connected
    */
   connect(id: string): boolean {
-    return this.updatePresence(id, 'online');
+    const result = this.updatePresence(id, 'online');
+    if (result) {
+      track(id, 'agent_connected', { agent_id: id });
+    }
+    return result;
   }
 
   /**
    * Mark agent as disconnected
    */
   disconnect(id: string): boolean {
-    return this.updatePresence(id, 'offline');
+    const result = this.updatePresence(id, 'offline');
+    if (result) {
+      track(id, 'agent_disconnected', { agent_id: id });
+    }
+    return result;
   }
 
   /**

@@ -16,6 +16,7 @@ import type { RelayClient } from '../relay/relay-client.js';
 import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
 import type { ChannelService } from './channel-service.js';
 import type { SqliteStorage } from '../storage/sqlite-storage.js';
+import { track } from '../analytics/posthog.js';
 
 /**
  * Interface for relay client functionality needed by MessageService.
@@ -123,6 +124,13 @@ export class MessageService {
 
     // Broadcast via relay
     this.broadcastMessage(message);
+
+    // Track message sent (no content for privacy)
+    track(senderId, 'message_sent', {
+      message_type: message.type,
+      target_type: input.targetType,
+      has_thread: !!input.threadId,
+    });
 
     console.log(`[MessageService] Message sent: ${id} to ${input.targetType}:${input.targetId}`);
     return message;

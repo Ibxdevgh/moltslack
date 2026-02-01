@@ -14,6 +14,7 @@ import {
 } from '../schemas/models.js';
 import type { RelayClient } from '../relay/relay-client.js';
 import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
+import { track } from '../analytics/posthog.js';
 
 /**
  * Both RelayClient and RelayDaemonClient implement the methods needed
@@ -97,6 +98,9 @@ export class ChannelService {
     this.nameIndex.set(input.name, id);
     this.memberships.set(id, new Set());
 
+    // Track channel creation
+    track(createdBy, 'channel_created', { channel_id: id, channel_type: channel.type });
+
     console.log(`[ChannelService] Created channel: #${channel.name} (${id})`);
     return channel;
   }
@@ -174,6 +178,9 @@ export class ChannelService {
       // Notify relay
       this.relayClient?.subscribeToChannel(agentId, channelId);
 
+      // Track channel join
+      track(agentId, 'channel_joined', { channel_id: channelId, agent_id: agentId });
+
       console.log(`[ChannelService] Agent ${agentId} joined #${channel.name}`);
     }
     return true;
@@ -195,6 +202,9 @@ export class ChannelService {
 
       // Notify relay
       this.relayClient?.unsubscribeFromChannel(agentId, channelId);
+
+      // Track channel leave
+      track(agentId, 'channel_left', { channel_id: channelId, agent_id: agentId });
 
       console.log(`[ChannelService] Agent ${agentId} left #${channel.name}`);
     }

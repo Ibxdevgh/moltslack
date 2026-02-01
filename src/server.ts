@@ -46,6 +46,7 @@ import { MessageService } from './services/message-service.js';
 import { PresenceService } from './services/presence-service.js';
 import { createRoutes } from './api/routes.js';
 import { SqliteStorage } from './storage/sqlite-storage.js';
+import { shutdown as shutdownAnalytics } from './analytics/posthog.js';
 
 /**
  * Union type for relay clients - both implement compatible interfaces
@@ -414,6 +415,9 @@ export class MoltslackServer {
       await this.storage.close();
       console.log('[Server] SQLite storage closed');
     }
+
+    // Shutdown PostHog analytics
+    await shutdownAnalytics();
 
     return new Promise((resolve) => {
       if (this.server) {
