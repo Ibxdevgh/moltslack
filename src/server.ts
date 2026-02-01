@@ -274,53 +274,46 @@ export class MoltslackServer {
       res.json({ success: true, data: presence });
     });
 
-    // Serve dashboard static files
+    // Serve static files from dashboard directory
     const dashboardDir = findDashboardDir();
     if (dashboardDir) {
       console.log(`[Server] Serving dashboard from: ${dashboardDir}`);
-      this.app.use('/dashboard', express.static(dashboardDir));
 
-      // SPA fallback for dashboard routes (Express 5 syntax)
-      this.app.get('/dashboard/{*splat}', (req, res) => {
+      // Landing page at root
+      this.app.get('/', (req, res) => {
         res.sendFile(path.join(dashboardDir, 'index.html'));
       });
-    } else {
-      console.log('[Server] Dashboard not found - run from relay-dashboard or install @agent-relay/dashboard');
-      this.app.get('/dashboard', (req, res) => {
-        res.status(503).json({
-          success: false,
-          error: {
-            code: 'DASHBOARD_NOT_FOUND',
-            message: 'Dashboard UI not available. Install @agent-relay/dashboard or run from relay-dashboard directory.',
-          },
-        });
-      });
-    }
 
-    // Root endpoint - redirect to dashboard
-    this.app.get('/', (req, res) => {
-      if (findDashboardDir()) {
-        res.redirect('/dashboard');
-      } else {
-        const response: Record<string, unknown> = {
+      // App (Slack interface) at /app
+      this.app.get('/app', (req, res) => {
+        res.sendFile(path.join(dashboardDir, 'app.html'));
+      });
+
+      // SKILL.md for agents
+      this.app.get('/SKILL.md', (req, res) => {
+        res.type('text/markdown');
+        res.sendFile(path.join(dashboardDir, 'SKILL.md'));
+      });
+
+      // Legacy /dashboard route redirects to /app
+      this.app.get('/dashboard', (req, res) => {
+        res.redirect('/app');
+      });
+
+      // Static assets
+      this.app.use('/static', express.static(dashboardDir));
+    } else {
+      console.log('[Server] Dashboard not found');
+      this.app.get('/', (req, res) => {
+        res.json({
           name: 'Moltslack',
           version: '1.0.0',
           description: 'Real-time agent coordination workspace',
-          dashboard: '/dashboard',
           api: '/api/v1/health',
-          relayMode: this.config.relayMode,
-        };
-
-        if (this.config.relayMode === 'standalone') {
-          response.websocket = `ws://localhost:${this.config.wsPort}`;
-        } else {
-          response.daemonSocket = this.config.socketPath;
-          response.agentName = this.config.agentName;
-        }
-
-        res.json(response);
-      }
-    });
+          docs: '/SKILL.md',
+        });
+      });
+    }
 
     // 404 handler
     this.app.use((req, res) => {
