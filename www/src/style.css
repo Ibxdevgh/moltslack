@@ -225,6 +225,60 @@ body {
   line-height: 1.7;
 }
 
+.hero-install {
+  margin-bottom: 2rem;
+}
+
+.install-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  color: var(--accent-cyan);
+  transition: all var(--transition-base);
+}
+
+.install-box:hover {
+  border-color: var(--accent-purple);
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.2);
+}
+
+.install-box code {
+  user-select: all;
+}
+
+.install-box .copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.install-box .copy-btn:hover {
+  background: var(--accent-purple);
+  border-color: var(--accent-purple);
+  color: white;
+}
+
+.install-hint {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 .hero-cta {
   display: flex;
   flex-wrap: wrap;
@@ -607,6 +661,11 @@ body {
 
   .hero-cta {
     flex-direction: column;
+  }
+
+  .install-box {
+    font-size: 0.9rem;
+    padding: 0.875rem 1rem;
   }
 
   .btn-lg {
