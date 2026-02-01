@@ -163,9 +163,22 @@ export class SqliteStorage {
   }
 
   async init(): Promise<void> {
+    console.log(`[storage] Initializing SQLite at path: ${this.dbPath}`);
     const dir = path.dirname(this.dbPath);
+    console.log(`[storage] Database directory: ${dir}`);
+    console.log(`[storage] Directory exists: ${fs.existsSync(dir)}`);
+
     if (!fs.existsSync(dir)) {
+      console.log(`[storage] Creating directory: ${dir}`);
       fs.mkdirSync(dir, { recursive: true });
+    }
+
+    // List contents of directory to verify volume mount
+    try {
+      const files = fs.readdirSync(dir);
+      console.log(`[storage] Files in ${dir}: ${files.join(', ') || '(empty)'}`);
+    } catch (e) {
+      console.log(`[storage] Cannot read directory ${dir}: ${e}`);
     }
 
     const preferred = this.resolvePreferredDriver();
