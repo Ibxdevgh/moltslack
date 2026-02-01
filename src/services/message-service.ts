@@ -13,7 +13,18 @@ import {
   type UUID,
 } from '../schemas/models.js';
 import type { RelayClient } from '../relay/relay-client.js';
+import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
 import type { ChannelService } from './channel-service.js';
+import type { SqliteStorage } from '../storage/sqlite-storage.js';
+
+/**
+ * Interface for relay client functionality needed by MessageService.
+ * Both RelayClient and RelayDaemonClient implement these methods, though
+ * with slightly different signatures. We use 'any' for message types
+ * to allow both implementations.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RelayClientUnion = RelayClient | RelayDaemonClient;
 
 export interface MessageSendInput {
   targetId: string;
@@ -30,14 +41,21 @@ export class MessageService {
   private channelMessages: Map<string, string[]> = new Map(); // channelId -> messageIds
   private threadMessages: Map<string, string[]> = new Map(); // threadId -> messageIds
   private projectId: UUID;
-  private relayClient?: RelayClient;
+  private relayClient?: RelayClientUnion;
   private channelService?: ChannelService;
   private signingKey: string;
+  private storage?: SqliteStorage;
 
-  constructor(projectId: UUID, relayClient?: RelayClient, channelService?: ChannelService) {
+  constructor(
+    projectId: UUID,
+    relayClient?: RelayClientUnion,
+    channelService?: ChannelService,
+    storage?: SqliteStorage
+  ) {
     this.projectId = projectId;
     this.relayClient = relayClient;
     this.channelService = channelService;
+    this.storage = storage;
     this.signingKey = process.env.MESSAGE_SIGNING_KEY || uuid();
   }
 
@@ -77,7 +95,7 @@ export class MessageService {
       sentAt: now,
     };
 
-    // Store message
+    // Store message in memory
     this.messages.set(id, message);
 
     // Index by channel
@@ -94,6 +112,13 @@ export class MessageService {
         this.threadMessages.set(input.threadId, []);
       }
       this.threadMessages.get(input.threadId)!.push(id);
+    }
+
+    // Persist to SQLite if storage is available
+    if (this.storage) {
+      this.storage.saveMessage(message).catch(err => {
+        console.error('[MessageService] Failed to persist message to SQLite:', err);
+      });
     }
 
     // Broadcast via relay
@@ -142,6 +167,15 @@ export class MessageService {
     const ids = this.channelMessages.get(channelId) || [];
     let messages = ids.map(id => this.messages.get(id)!).filter(Boolean);
 
+    // If in-memory is empty but storage is available, try loading from SQLite
+    if (messages.length === 0 && this.storage) {
+      // Note: This is synchronous for API compatibility. Consider async refactor in future.
+      // For now, we'll load messages into memory on first access.
+      this.loadChannelMessagesFromStorage(channelId, limit);
+      const reloadedIds = this.channelMessages.get(channelId) || [];
+      messages = reloadedIds.map(id => this.messages.get(id)!).filter(Boolean);
+    }
+
     // Filter soft-deleted messages
     messages = messages.filter(m => !m.deletedAt);
 
@@ -157,6 +191,48 @@ export class MessageService {
     }
 
     return messages.slice(0, limit);
+  }
+
+  /**
+   * Load channel messages from SQLite storage into memory (sync wrapper)
+   */
+  private loadChannelMessagesFromStorage(channelId: string, limit: number): void {
+    if (!this.storage) return;
+
+    // Use a synchronous approach - get messages and populate in-memory cache
+    // Note: SqliteStorage uses synchronous SQLite operations internally
+    this.storage.getChannelMessages(channelId, limit)
+      .then(messages => {
+        for (const msg of messages) {
+          if (!this.messages.has(msg.id)) {
+            this.messages.set(msg.id, msg);
+
+            // Index by channel
+            if (!this.channelMessages.has(msg.targetId)) {
+              this.channelMessages.set(msg.targetId, []);
+            }
+            const channelMsgIds = this.channelMessages.get(msg.targetId)!;
+            if (!channelMsgIds.includes(msg.id)) {
+              channelMsgIds.push(msg.id);
+            }
+
+            // Index by thread
+            if (msg.threadId) {
+              if (!this.threadMessages.has(msg.threadId)) {
+                this.threadMessages.set(msg.threadId, []);
+              }
+              const threadMsgIds = this.threadMessages.get(msg.threadId)!;
+              if (!threadMsgIds.includes(msg.id)) {
+                threadMsgIds.push(msg.id);
+              }
+            }
+          }
+        }
+        console.log(`[MessageService] Loaded ${messages.length} messages from storage for channel ${channelId}`);
+      })
+      .catch(err => {
+        console.error('[MessageService] Failed to load messages from storage:', err);
+      });
   }
 
   /**

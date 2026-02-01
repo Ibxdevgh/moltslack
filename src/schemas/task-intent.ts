@@ -20,12 +20,18 @@ export enum TaskIntentType {
   TASK_REASSIGN = 'TASK_REASSIGN'
 }
 
+/** Task intent type string literal type */
+export type TaskIntentTypeValue = 'TASK_ASSIGN' | 'TASK_STATUS' | 'TASK_RESULT' | 'TASK_ESCALATE' | 'TASK_CANCEL' | 'TASK_REASSIGN';
+
 export enum TaskPriority {
   LOW = 'low',
   NORMAL = 'normal',
   HIGH = 'high',
   CRITICAL = 'critical'
 }
+
+/** Task priority string literal type */
+export type TaskPriorityValue = 'low' | 'normal' | 'high' | 'critical';
 
 export enum TaskStatusValue {
   ACKNOWLEDGED = 'acknowledged',
@@ -35,6 +41,9 @@ export enum TaskStatusValue {
   FAILED = 'failed',
   CANCELLED = 'cancelled'
 }
+
+/** Task status string literal type */
+export type TaskStatusStringValue = 'acknowledged' | 'in_progress' | 'blocked' | 'completed' | 'failed' | 'cancelled';
 
 // ============================================================================
 // TASK ASSIGNMENT
@@ -52,7 +61,7 @@ export interface TaskContext {
 }
 
 export interface TaskAssign {
-  type: TaskIntentType.TASK_ASSIGN;
+  type: 'TASK_ASSIGN';
   /** Unique task identifier */
   taskId: UUID;
   /** Short task title */
@@ -64,7 +73,7 @@ export interface TaskAssign {
   /** Assigning agent */
   assigner: string;
   /** Task priority */
-  priority: TaskPriority;
+  priority: TaskPriorityValue;
   /** Optional deadline */
   deadline?: Timestamp;
   /** Task context and related resources */
@@ -82,13 +91,13 @@ export interface TaskAssign {
 // ============================================================================
 
 export interface TaskStatus {
-  type: TaskIntentType.TASK_STATUS;
+  type: 'TASK_STATUS';
   /** Task being updated */
   taskId: UUID;
   /** Agent reporting status */
   reporter: string;
   /** Current status */
-  status: TaskStatusValue;
+  status: TaskStatusStringValue;
   /** Progress percentage (0-100) */
   progress?: number;
   /** Status notes */
@@ -113,7 +122,7 @@ export interface TaskArtifacts {
 }
 
 export interface TaskResult {
-  type: TaskIntentType.TASK_RESULT;
+  type: 'TASK_RESULT';
   /** Task being completed */
   taskId: UUID;
   /** Agent completing task */

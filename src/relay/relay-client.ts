@@ -1,6 +1,10 @@
 /**
  * RelayClient - Core communication layer using Agent Relay protocol
  * Handles message passing, topic subscriptions, and presence signals
+ *
+ * This module provides two modes of operation:
+ * 1. Standalone mode (default): Runs its own WebSocket server for direct agent connections
+ * 2. Daemon mode: Connects to the agent-relay daemon via Unix socket for relay-dashboard integration
  */
 
 import { EventEmitter } from 'events';
@@ -15,9 +19,20 @@ import type {
   PresenceStatus,
 } from '../models/types.js';
 
+/** Connection mode for the relay client */
+export type RelayMode = 'standalone' | 'daemon';
+
 interface RelayClientOptions {
+  /** WebSocket port for standalone mode (default: 3001) */
   port?: number;
+  /** Host to bind to in standalone mode (default: 0.0.0.0) */
   host?: string;
+  /** Connection mode: 'standalone' runs WS server, 'daemon' connects to relay daemon */
+  mode?: RelayMode;
+  /** Unix socket path for daemon mode (default: .agent-relay/relay.sock) */
+  socketPath?: string;
+  /** Agent name for daemon mode registration */
+  agentName?: string;
 }
 
 interface PendingAck {
@@ -378,6 +393,74 @@ export class RelayClient extends EventEmitter {
   getChannelSubscribers(channelId: string): string[] {
     return Array.from(this.subscriptions.get(channelId) || []);
   }
+
+  /**
+   * Get the connection mode
+   */
+  get mode(): RelayMode {
+    return 'standalone';
+  }
+}
+
+// Re-export the daemon client for direct use
+export { RelayDaemonClient, type RelayDaemonClientOptions } from './relay-daemon-client.js';
+
+/**
+ * Common interface for both RelayClient and RelayDaemonClient
+ * This allows the server to use either implementation interchangeably
+ */
+export interface IRelayClient extends EventEmitter {
+  start(): Promise<void>;
+  stop(): Promise<void>;
+  registerConnection(agentId: string, ws: unknown): void;
+  subscribeToChannel(agentId: string, channelId: string): void;
+  unsubscribeFromChannel(agentId: string, channelId: string): void;
+  sendToAgent(agentId: string, message: WSMessage): void;
+  broadcastToChannel(channelId: string, message: WSMessage): void;
+  broadcast(message: WSMessage): void;
+  emitRelayEvent(event: RelayEvent): void;
+  getConnectionCount(): number;
+  getChannelSubscribers(channelId: string): string[];
+}
+
+/**
+ * Factory function to create a relay client based on the mode
+ *
+ * @param options - Configuration options
+ * @returns Either a RelayClient (standalone) or RelayDaemonClient (daemon mode)
+ *
+ * @example Standalone mode (runs its own WebSocket server)
+ * ```ts
+ * const relay = createRelayClient({ mode: 'standalone', port: 3001 });
+ * await relay.start();
+ * ```
+ *
+ * @example Daemon mode (connects to relay daemon)
+ * ```ts
+ * const relay = createRelayClient({
+ *   mode: 'daemon',
+ *   socketPath: '.agent-relay/relay.sock',
+ *   agentName: 'Moltslack'
+ * });
+ * await relay.start();
+ * ```
+ */
+export function createRelayClient(options: RelayClientOptions = {}): IRelayClient {
+  const mode = options.mode || 'standalone';
+
+  if (mode === 'daemon') {
+    // Import dynamically to avoid circular dependencies
+    const { RelayDaemonClient } = require('./relay-daemon-client.js');
+    return new RelayDaemonClient({
+      socketPath: options.socketPath || '.agent-relay/relay.sock',
+      agentName: options.agentName || 'Moltslack',
+    }) as IRelayClient;
+  }
+
+  return new RelayClient({
+    port: options.port,
+    host: options.host,
+  }) as IRelayClient;
 }
 
 export default RelayClient;

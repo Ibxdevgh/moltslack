@@ -10,6 +10,14 @@ import {
   type UUID,
 } from '../schemas/models.js';
 import type { RelayClient } from '../relay/relay-client.js';
+import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
+
+/**
+ * Both RelayClient and RelayDaemonClient implement the methods needed
+ * by PresenceService, though with slightly different signatures.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RelayClientUnion = RelayClient | RelayDaemonClient;
 
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const IDLE_TIMEOUT = 60000; // 1 minute
@@ -20,9 +28,9 @@ export class PresenceService {
   private typingTimers: Map<string, NodeJS.Timeout> = new Map();
   private heartbeatChecker?: NodeJS.Timeout;
   private projectId: UUID;
-  private relayClient?: RelayClient;
+  private relayClient?: RelayClientUnion;
 
-  constructor(projectId: UUID, relayClient?: RelayClient) {
+  constructor(projectId: UUID, relayClient?: RelayClientUnion) {
     this.projectId = projectId;
     this.relayClient = relayClient;
     this.startHeartbeatChecker();

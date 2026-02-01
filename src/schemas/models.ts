@@ -127,13 +127,16 @@ export enum ChannelAccessLevel {
   ADMIN = 'admin'
 }
 
+/** Channel access level string literal type */
+export type ChannelAccessLevelValue = 'read' | 'write' | 'admin';
+
 export interface ChannelAccessRule {
   /** Principal: agent ID, role name, or '*' for all */
   principal: string;
   /** Type of principal */
   principalType: 'agent' | 'role' | 'all';
   /** Access level granted */
-  level: ChannelAccessLevel;
+  level: ChannelAccessLevelValue;
   /** Optional expiration */
   expiresAt?: Timestamp;
 }
@@ -167,7 +170,7 @@ export interface Channel {
   /** Access control rules (evaluated in order, first match wins) */
   accessRules: ChannelAccessRule[];
   /** Default access for agents not matching any rule */
-  defaultAccess: ChannelAccessLevel | null;
+  defaultAccess: ChannelAccessLevelValue | null;
   /** Channel metadata */
   metadata: ChannelMetadata;
   /** Agent who created the channel */
@@ -201,6 +204,9 @@ export enum MessageDeliveryStatus {
   READ = 'read',
   FAILED = 'failed'
 }
+
+/** Message delivery status string literal type */
+export type MessageDeliveryStatusValue = 'pending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export interface MessageAttachment {
   /** Attachment identifier */
@@ -261,7 +267,7 @@ export interface Message {
   /** Cryptographic signature of message */
   signature: Signature;
   /** Delivery status */
-  deliveryStatus: MessageDeliveryStatus;
+  deliveryStatus: MessageDeliveryStatusValue;
   /** Timestamp when message was sent */
   sentAt: Timestamp;
   /** Timestamp when message was edited (if applicable) */
@@ -389,6 +395,9 @@ export enum PresenceStatus {
   OFFLINE = 'offline'
 }
 
+/** Presence status string literal type */
+export type PresenceStatusValue = 'online' | 'idle' | 'busy' | 'dnd' | 'offline';
+
 export interface PresenceActivity {
   /** Type of activity */
   type: 'working' | 'waiting' | 'processing' | 'custom';
@@ -406,7 +415,7 @@ export interface Presence {
   /** Project ID */
   projectId: UUID;
   /** Current status */
-  status: PresenceStatus;
+  status: PresenceStatusValue;
   /** Manual status message */
   statusMessage?: string;
   /** Current activity */

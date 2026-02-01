@@ -6,12 +6,21 @@ import { v4 as uuid } from 'uuid';
 import {
   ChannelType,
   ChannelAccessLevel,
+  type ChannelAccessLevelValue,
   type Channel,
   type ChannelAccessRule,
   type ChannelMetadata,
   type UUID,
 } from '../schemas/models.js';
 import type { RelayClient } from '../relay/relay-client.js';
+import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
+
+/**
+ * Both RelayClient and RelayDaemonClient implement the methods needed
+ * by ChannelService.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type RelayClientUnion = RelayClient | RelayDaemonClient;
 
 export interface ChannelCreateInput {
   name: string;
@@ -26,9 +35,9 @@ export class ChannelService {
   private nameIndex: Map<string, string> = new Map(); // name -> id
   private memberships: Map<string, Set<string>> = new Map(); // channelId -> Set<agentId>
   private projectId: UUID;
-  private relayClient?: RelayClient;
+  private relayClient?: RelayClientUnion;
 
-  constructor(projectId: UUID, relayClient?: RelayClient) {
+  constructor(projectId: UUID, relayClient?: RelayClientUnion) {
     this.projectId = projectId;
     this.relayClient = relayClient;
     this.createDefaultChannels();
@@ -71,7 +80,7 @@ export class ChannelService {
       projectId: this.projectId,
       type: input.type || ChannelType.PUBLIC,
       accessRules: this.createDefaultAccessRules(input.type || ChannelType.PUBLIC),
-      defaultAccess: input.type === ChannelType.PRIVATE ? null : ChannelAccessLevel.READ,
+      defaultAccess: input.type === ChannelType.PRIVATE ? null : 'read',
       metadata: {
         displayName: input.name,
         topic: input.topic,
@@ -99,13 +108,13 @@ export class ChannelService {
     switch (type) {
       case ChannelType.PUBLIC:
         return [
-          { principal: '*', principalType: 'all', level: ChannelAccessLevel.WRITE },
+          { principal: '*', principalType: 'all', level: 'write' },
         ];
       case ChannelType.PRIVATE:
         return [];
       case ChannelType.BROADCAST:
         return [
-          { principal: '*', principalType: 'all', level: ChannelAccessLevel.READ },
+          { principal: '*', principalType: 'all', level: 'read' },
         ];
       case ChannelType.DIRECT:
         return [];
@@ -151,7 +160,7 @@ export class ChannelService {
     if (!channel) return false;
 
     // Check access
-    if (!this.checkAccess(channelId, agentId, ChannelAccessLevel.READ)) {
+    if (!this.checkAccess(channelId, agentId, 'read')) {
       throw new Error('Permission denied: cannot join channel');
     }
 
@@ -211,7 +220,7 @@ export class ChannelService {
   /**
    * Check agent access to channel
    */
-  checkAccess(channelId: string, agentId: string, requiredLevel: ChannelAccessLevel): boolean {
+  checkAccess(channelId: string, agentId: string, requiredLevel: ChannelAccessLevelValue): boolean {
     const channel = this.channels.get(channelId);
     if (!channel) return false;
 
@@ -243,8 +252,8 @@ export class ChannelService {
   /**
    * Check if access level satisfies requirement
    */
-  private accessLevelSatisfies(actual: ChannelAccessLevel, required: ChannelAccessLevel): boolean {
-    const levels = [ChannelAccessLevel.READ, ChannelAccessLevel.WRITE, ChannelAccessLevel.ADMIN];
+  private accessLevelSatisfies(actual: ChannelAccessLevelValue, required: ChannelAccessLevelValue): boolean {
+    const levels: ChannelAccessLevelValue[] = ['read', 'write', 'admin'];
     return levels.indexOf(actual) >= levels.indexOf(required);
   }
 
@@ -297,7 +306,7 @@ export class ChannelService {
    */
   getAccessibleChannels(agentId: string): Channel[] {
     return this.getAll().filter(c =>
-      this.checkAccess(c.id, agentId, ChannelAccessLevel.READ)
+      this.checkAccess(c.id, agentId, 'read')
     );
   }
 
