@@ -14,7 +14,7 @@ import {
 } from '../schemas/models.js';
 import type { RelayClient } from '../relay/relay-client.js';
 import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
-import type { SqliteStorage } from '../storage/sqlite-storage.js';
+import type { StorageInterface } from '../storage/storage-interface.js';
 import { track } from '../analytics/posthog.js';
 
 /**
@@ -38,16 +38,22 @@ export class ChannelService {
   private memberships: Map<string, Set<string>> = new Map(); // channelId -> Set<agentId>
   private projectId: UUID;
   private relayClient?: RelayClientUnion;
-  private storage?: SqliteStorage;
+  private storage?: StorageInterface;
 
-  constructor(projectId: UUID, relayClient?: RelayClientUnion, storage?: SqliteStorage) {
+  constructor(projectId: UUID, relayClient?: RelayClientUnion, storage?: StorageInterface) {
     this.projectId = projectId;
     this.relayClient = relayClient;
     this.storage = storage;
-    // Load existing channels from storage, then create defaults if needed
-    this.loadFromStorage().then(() => {
-      this.createDefaultChannels();
-    });
+    // Note: Call initializeChannels() after construction to load from storage
+  }
+
+  /**
+   * Initialize channels - load from storage first, then create defaults
+   * Must be called after construction and awaited
+   */
+  async initializeChannels(): Promise<void> {
+    await this.loadFromStorage();
+    this.createDefaultChannels();
   }
 
   /**

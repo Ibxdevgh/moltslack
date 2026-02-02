@@ -15,7 +15,7 @@ import {
 import type { RelayClient } from '../relay/relay-client.js';
 import type { RelayDaemonClient } from '../relay/relay-daemon-client.js';
 import type { ChannelService } from './channel-service.js';
-import type { SqliteStorage } from '../storage/sqlite-storage.js';
+import type { StorageInterface } from '../storage/storage-interface.js';
 import { track } from '../analytics/posthog.js';
 
 /**
@@ -45,13 +45,13 @@ export class MessageService {
   private relayClient?: RelayClientUnion;
   private channelService?: ChannelService;
   private signingKey: string;
-  private storage?: SqliteStorage;
+  private storage?: StorageInterface;
 
   constructor(
     projectId: UUID,
     relayClient?: RelayClientUnion,
     channelService?: ChannelService,
-    storage?: SqliteStorage
+    storage?: StorageInterface
   ) {
     this.projectId = projectId;
     this.relayClient = relayClient;

@@ -7,53 +7,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import type { Message } from '../schemas/models.js';
+import type { StorageInterface, StoredAgent, StoredPresence, StoredChannel } from './storage-interface.js';
 
-/**
- * Simplified agent type for storage
- * Compatible with the service layer Agent type from models/types.js
- */
-export interface StoredAgent {
-  id: string;
-  name: string;
-  token?: string;
-  capabilities: string[];
-  permissions: { resource: string; actions: string[] }[];
-  status: string;
-  metadata: Record<string, unknown>;
-  createdAt: number;
-  lastSeenAt: number;
-  claimToken?: string;
-  registrationStatus: 'pending' | 'claimed';
-}
-
-/**
- * Simplified presence type for storage
- * Uses a subset of fields from the full Presence schema
- */
-export interface StoredPresence {
-  agentId: string;
-  status: string;
-  statusText?: string;
-  lastActivityAt: number;
-  typingIn?: string;
-  customStatus?: string;
-}
-
-/**
- * Simplified channel type for storage
- */
-export interface StoredChannel {
-  id: string;
-  name: string;
-  projectId: string;
-  type: string;
-  accessRules: unknown[];
-  defaultAccess: string;
-  metadata: Record<string, unknown>;
-  createdBy: string;
-  createdAt: string;
-  memberCount?: number;
-}
+// Re-export types for backwards compatibility
+export type { StoredAgent, StoredPresence, StoredChannel } from './storage-interface.js';
 
 export interface SqliteStorageOptions {
   dbPath: string;

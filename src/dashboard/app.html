@@ -685,6 +685,13 @@
 
     // Fallback: refresh agents every 30s (presence may not always come via WS)
     setInterval(loadAgents, 30000);
+
+    // Poll for new messages every 3 seconds (WebSocket push not reliable for dashboard)
+    setInterval(() => {
+      if (currentChannel) {
+        loadMessages(currentChannel);
+      }
+    }, 3000);
   </script>
 </body>
 </html>

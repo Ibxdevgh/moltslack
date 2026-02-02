@@ -8,6 +8,7 @@
  */
 
 import express from 'express';
+import http from 'http';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
@@ -46,6 +47,8 @@ import { MessageService } from './services/message-service.js';
 import { PresenceService } from './services/presence-service.js';
 import { createRoutes } from './api/routes.js';
 import { SqliteStorage } from './storage/sqlite-storage.js';
+import { PostgresStorage } from './storage/postgres-storage.js';
+import type { StorageInterface } from './storage/storage-interface.js';
 import { shutdown as shutdownAnalytics } from './analytics/posthog.js';
 
 /**
@@ -78,9 +81,9 @@ export class MoltslackServer {
   private channelService!: ChannelService;
   private messageService!: MessageService;
   private presenceService!: PresenceService;
-  private storage?: SqliteStorage;
+  private storage?: StorageInterface;
   private config: ServerConfig & { relayMode: RelayMode; singlePort: boolean };
-  private server?: ReturnType<typeof express.application.listen>;
+  private server?: http.Server;
 
   constructor(config: Partial<ServerConfig> = {}) {
     // Get relay config from environment, allowing overrides
@@ -101,8 +104,15 @@ export class MoltslackServer {
       singlePort,
     };
 
-    // Initialize SQLite storage
-    this.storage = new SqliteStorage({ dbPath: this.config.dbPath! });
+    // Initialize storage adapter - PostgreSQL if DATABASE_URL is set, SQLite otherwise
+    const databaseUrl = process.env.DATABASE_URL;
+    if (databaseUrl) {
+      console.log('[Server] DATABASE_URL detected - using PostgreSQL storage');
+      this.storage = new PostgresStorage({ connectionString: databaseUrl });
+    } else {
+      console.log('[Server] No DATABASE_URL - using SQLite storage');
+      this.storage = new SqliteStorage({ dbPath: this.config.dbPath! });
+    }
 
     // Initialize services
     this.authService = new AuthService(this.config.jwtSecret);
@@ -132,19 +142,20 @@ export class MoltslackServer {
     this.app = express();
     this.setupMiddleware();
 
-    // For non-single-port modes, initialize services immediately
-    if (!this.config.singlePort || this.config.relayMode === 'daemon') {
-      this.initializeServices();
-      this.setupRoutes();
-    }
+    // For non-single-port modes, services are initialized in start() after storage is ready
+    // Routes are set up after services are initialized
   }
 
   /**
    * Initialize services that depend on relayClient (called after relay is ready)
    */
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     // Cast to any to satisfy TypeScript - both clients implement compatible interfaces
     this.channelService = new ChannelService(this.config.projectId!, this.relayClient as any, this.storage);
+
+    // Load channels from storage before creating defaults
+    await this.channelService.initializeChannels();
+
     this.messageService = new MessageService(
       this.config.projectId!,
       this.relayClient as any,
@@ -343,27 +354,32 @@ export class MoltslackServer {
    * Start the server
    */
   async start(): Promise<void> {
-    // Initialize SQLite storage
+    // Initialize storage
     if (this.storage) {
       await this.storage.init();
-      console.log(`[Server] SQLite storage initialized at ${this.config.dbPath}`);
+      const storageType = process.env.DATABASE_URL ? 'PostgreSQL' : 'SQLite';
+      console.log(`[Server] ${storageType} storage initialized`);
     }
 
-    // Start HTTP server first (needed for single-port WebSocket mode)
+    // Create HTTP server (but don't listen yet - routes need to be set up first)
+    this.server = http.createServer(this.app);
+
+    // Initialize relay client for single-port mode (needs HTTP server object)
+    if (this.config.singlePort && this.config.relayMode !== 'daemon') {
+      this.relayClient = new RelayClient({ server: this.server });
+    }
+
+    // Initialize services and routes BEFORE accepting connections
+    await this.initializeServices();
+    this.setupRoutes();
+
+    // NOW start listening - routes are ready
     await new Promise<void>((resolve) => {
-      this.server = this.app.listen(this.config.port, () => {
+      this.server!.listen(this.config.port, () => {
         console.log(`[Server] HTTP server listening on port ${this.config.port}`);
         resolve();
       });
     });
-
-    // Initialize relay client for single-port mode (needs HTTP server)
-    if (this.config.singlePort && this.config.relayMode !== 'daemon') {
-      this.relayClient = new RelayClient({ server: this.server });
-      // Initialize services and routes now that relay client is ready
-      this.initializeServices();
-      this.setupRoutes();
-    }
 
     // Start relay client (WebSocket server or daemon connection)
     await this.relayClient.start();
@@ -415,10 +431,10 @@ export class MoltslackServer {
     this.presenceService.stop();
     await this.relayClient.stop();
 
-    // Close SQLite storage
+    // Close storage
     if (this.storage) {
       await this.storage.close();
-      console.log('[Server] SQLite storage closed');
+      console.log('[Server] Storage closed');
     }
 
     // Shutdown PostHog analytics

@@ -8,3 +8,13 @@ healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 30
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+# Auto-scaling configuration for high traffic
+numReplicas = 5
+sleepApplication = false
+
+[deploy.healthcheck]
+# Health check for scaling decisions
+path = "/api/v1/health"
+interval = 10
+timeout = 5
