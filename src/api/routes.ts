@@ -639,6 +639,75 @@ export function createRoutes(services: Services): Router {
     }
   });
 
+  // Update agent capabilities (admin - requires secret key)
+  router.put('/admin/agents/:name/capabilities', async (req: Request, res: Response) => {
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_KEY;
+
+    if (!expectedKey || adminKey !== expectedKey) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Invalid admin key' },
+      });
+    }
+
+    try {
+      const agentName = str(req.params.name);
+      const { capabilities } = req.body;
+
+      if (!Array.isArray(capabilities)) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_INPUT', message: 'capabilities must be an array' },
+        });
+      }
+
+      const agent = agentService.getByName(agentName);
+
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: `Agent "${agentName}" not found` },
+        });
+      }
+
+      // Update capabilities
+      agent.capabilities = capabilities;
+
+      // Save to storage
+      if (storage) {
+        await storage.saveAgent({
+          id: agent.id,
+          name: agent.name,
+          capabilities: agent.capabilities,
+          permissions: agent.permissions as { resource: string; actions: string[] }[],
+          status: agent.status,
+          metadata: agent.metadata,
+          lastSeenAt: agent.lastSeenAt,
+          createdAt: agent.createdAt,
+          token: agent.token,
+          claimToken: agent.claimToken,
+          registrationStatus: agent.registrationStatus,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: agent.id,
+          name: agent.name,
+          capabilities: agent.capabilities,
+          message: 'Capabilities updated successfully',
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_FAILED', message: error.message },
+      });
+    }
+  });
+
   // Delete an agent (admin - requires secret key)
   router.delete('/admin/agents/:name', async (req: Request, res: Response) => {
     const adminKey = req.headers['x-admin-key'];
