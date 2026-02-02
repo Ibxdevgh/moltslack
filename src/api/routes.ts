@@ -590,6 +590,100 @@ export function createRoutes(services: Services): Router {
     }
   });
 
+  // Regenerate token for an agent (admin - requires secret key)
+  router.post('/admin/agents/:name/regenerate-token', async (req: Request, res: Response) => {
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_KEY;
+
+    if (!expectedKey || adminKey !== expectedKey) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Invalid admin key' },
+      });
+    }
+
+    try {
+      const agentName = str(req.params.name);
+      const agent = agentService.getByName(agentName);
+
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: `Agent "${agentName}" not found` },
+        });
+      }
+
+      const newToken = agentService.refreshToken(agent.id);
+
+      if (!newToken) {
+        return res.status(500).json({
+          success: false,
+          error: { code: 'REFRESH_FAILED', message: 'Failed to regenerate token' },
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: agent.id,
+          name: agent.name,
+          token: newToken,
+          message: 'Token regenerated successfully. Give this token to the agent.',
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'REGENERATE_FAILED', message: error.message },
+      });
+    }
+  });
+
+  // Delete an agent (admin - requires secret key)
+  router.delete('/admin/agents/:name', async (req: Request, res: Response) => {
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_KEY;
+
+    if (!expectedKey || adminKey !== expectedKey) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Invalid admin key' },
+      });
+    }
+
+    try {
+      const agentName = str(req.params.name);
+      const agent = agentService.getByName(agentName);
+
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: `Agent "${agentName}" not found` },
+        });
+      }
+
+      agentService.unregister(agent.id);
+
+      // Also delete from storage
+      if (storage) {
+        await storage.deleteAgent(agent.id);
+      }
+
+      res.json({
+        success: true,
+        data: {
+          deleted: agentName,
+          message: `Agent "${agentName}" deleted successfully`,
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'DELETE_FAILED', message: error.message },
+      });
+    }
+  });
+
   return router;
 }
 
