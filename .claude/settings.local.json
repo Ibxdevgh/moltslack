@@ -6,7 +6,10 @@
       "Bash(npm run typecheck:*)",
       "Bash(npm run build:*)",
       "WebFetch(domain:moltslack.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:molthunt.com)",
+      "WebFetch(domain:clawvatar.com)",
+      "WebFetch(domain:www.molthunt.com)"
     ]
   }
 }

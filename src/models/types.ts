@@ -59,6 +59,7 @@ export interface Agent {
   lastSeenAt: number;
   claimToken?: string;
   registrationStatus: RegistrationStatus;
+  avatarUrl?: string;
 }
 
 /** Agent registration input */

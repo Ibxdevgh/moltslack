@@ -22,12 +22,13 @@ describe('API Routes', () => {
   let presenceService: PresenceService;
   let testProjectId: string;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     // Setup fresh services for each test
     testProjectId = uuid();
     authService = new AuthService('test-secret-key');
     agentService = new AgentService(authService);
     channelService = new ChannelService(testProjectId);
+    await channelService.initializeChannels();
     messageService = new MessageService(testProjectId, undefined, channelService);
     presenceService = new PresenceService(testProjectId);
 
@@ -52,8 +53,8 @@ describe('API Routes', () => {
   });
 
   // Helper to create a test agent and get its token
-  const createTestAgent = (name: string = 'TestAgent') => {
-    const agent = agentService.register({ name, capabilities: ['test'] });
+  const createTestAgent = async (name: string = 'TestAgent') => {
+    const agent = await agentService.register({ name, capabilities: ['test'] });
     return { agent, token: agent.token };
   };
 
@@ -129,8 +130,8 @@ describe('API Routes', () => {
 
     describe('GET /api/agents', () => {
       it('should list all agents', async () => {
-        createTestAgent('Agent1');
-        createTestAgent('Agent2');
+        await createTestAgent('Agent1');
+        await createTestAgent('Agent2');
 
         const res = await request(app).get('/api/agents');
 
@@ -141,7 +142,7 @@ describe('API Routes', () => {
       });
 
       it('should not include token in list response', async () => {
-        createTestAgent('SecretAgent');
+        await createTestAgent('SecretAgent');
 
         const res = await request(app).get('/api/agents');
 
@@ -150,7 +151,7 @@ describe('API Routes', () => {
       });
 
       it('should include basic agent info in list', async () => {
-        createTestAgent('InfoAgent');
+        await createTestAgent('InfoAgent');
 
         const res = await request(app).get('/api/agents');
 
@@ -164,7 +165,7 @@ describe('API Routes', () => {
 
     describe('GET /api/agents/:id', () => {
       it('should get agent by ID', async () => {
-        const { agent } = createTestAgent('SpecificAgent');
+        const { agent } = await createTestAgent('SpecificAgent');
 
         const res = await request(app).get(`/api/agents/${agent.id}`);
 
@@ -185,7 +186,7 @@ describe('API Routes', () => {
 
     describe('GET /api/agents/me', () => {
       it('should return current agent info when authenticated', async () => {
-        const { agent, token } = createTestAgent('MeAgent');
+        const { agent, token } = await createTestAgent('MeAgent');
 
         const res = await request(app)
           .get('/api/agents/me')
@@ -242,7 +243,7 @@ describe('API Routes', () => {
 
     describe('POST /api/channels', () => {
       it('should create a new channel when authenticated', async () => {
-        const { token } = createTestAgent('ChannelCreator');
+        const { token } = await createTestAgent('ChannelCreator');
 
         const res = await request(app)
           .post('/api/channels')
@@ -265,7 +266,7 @@ describe('API Routes', () => {
       });
 
       it('should return 400 when name is missing', async () => {
-        const { token } = createTestAgent('NoNameChannel');
+        const { token } = await createTestAgent('NoNameChannel');
 
         const res = await request(app)
           .post('/api/channels')
@@ -277,7 +278,7 @@ describe('API Routes', () => {
       });
 
       it('should return 400 for duplicate channel name', async () => {
-        const { token } = createTestAgent('DupChannelAgent');
+        const { token } = await createTestAgent('DupChannelAgent');
 
         await request(app)
           .post('/api/channels')
@@ -296,7 +297,7 @@ describe('API Routes', () => {
 
     describe('GET /api/channels/:id', () => {
       it('should get channel by ID', async () => {
-        const { token } = createTestAgent('GetChannelAgent');
+        const { token } = await createTestAgent('GetChannelAgent');
 
         const createRes = await request(app)
           .post('/api/channels')
@@ -324,7 +325,7 @@ describe('API Routes', () => {
 
     describe('POST /api/channels/:id/join', () => {
       it('should allow agent to join a channel', async () => {
-        const { token } = createTestAgent('JoinAgent');
+        const { token } = await createTestAgent('JoinAgent');
         const general = channelService.getByName('general');
 
         const res = await request(app)
@@ -345,7 +346,7 @@ describe('API Routes', () => {
       });
 
       it('should return 404 for non-existent channel', async () => {
-        const { token } = createTestAgent('JoinNonExistent');
+        const { token } = await createTestAgent('JoinNonExistent');
 
         const res = await request(app)
           .post('/api/channels/non-existent/join')
@@ -355,8 +356,8 @@ describe('API Routes', () => {
       });
 
       it('should return 403 when joining private channel without access', async () => {
-        const { agent, token } = createTestAgent('PrivateJoinAgent');
-        const { token: creatorToken } = createTestAgent('PrivateCreator');
+        const { agent, token } = await createTestAgent('PrivateJoinAgent');
+        const { token: creatorToken } = await createTestAgent('PrivateCreator');
 
         // Create a private channel
         const createRes = await request(app)
@@ -376,7 +377,7 @@ describe('API Routes', () => {
       });
 
       it('should handle double-join idempotently', async () => {
-        const { token } = createTestAgent('DoubleJoinAgent');
+        const { token } = await createTestAgent('DoubleJoinAgent');
         const general = channelService.getByName('general');
 
         // First join
@@ -399,7 +400,7 @@ describe('API Routes', () => {
 
     describe('POST /api/channels/:id/leave', () => {
       it('should allow agent to leave a channel', async () => {
-        const { agent, token } = createTestAgent('LeaveAgent');
+        const { agent, token } = await createTestAgent('LeaveAgent');
         const general = channelService.getByName('general');
 
         // First join
@@ -418,7 +419,7 @@ describe('API Routes', () => {
       });
 
       it('should return 404 for non-existent channel', async () => {
-        const { token } = createTestAgent('LeaveNonExistent');
+        const { token } = await createTestAgent('LeaveNonExistent');
 
         const res = await request(app)
           .post('/api/channels/non-existent/leave')
@@ -428,7 +429,7 @@ describe('API Routes', () => {
       });
 
       it('should handle double-leave idempotently', async () => {
-        const { token } = createTestAgent('DoubleLeaveAgent');
+        const { token } = await createTestAgent('DoubleLeaveAgent');
         const general = channelService.getByName('general');
 
         // Join first
@@ -456,7 +457,7 @@ describe('API Routes', () => {
 
     describe('GET /api/channels/:id/members', () => {
       it('should list channel members', async () => {
-        const { agent, token } = createTestAgent('MemberAgent');
+        const { agent, token } = await createTestAgent('MemberAgent');
         const general = channelService.getByName('general');
 
         // Join the channel
@@ -473,7 +474,7 @@ describe('API Routes', () => {
       });
 
       it('should return empty array for channel with no members', async () => {
-        const { token } = createTestAgent('EmptyMemberAgent');
+        const { token } = await createTestAgent('EmptyMemberAgent');
 
         const createRes = await request(app)
           .post('/api/channels')
@@ -493,7 +494,7 @@ describe('API Routes', () => {
   describe('Message Routes', () => {
     describe('GET /api/channels/:id/messages', () => {
       it('should get channel messages', async () => {
-        const { agent, token } = createTestAgent('MessageReader');
+        const { agent, token } = await createTestAgent('MessageReader');
         const general = channelService.getByName('general');
 
         // Join and send a message first
@@ -515,7 +516,7 @@ describe('API Routes', () => {
       });
 
       it('should support limit parameter', async () => {
-        const { token } = createTestAgent('LimitAgent');
+        const { token } = await createTestAgent('LimitAgent');
         const general = channelService.getByName('general');
 
         // Send multiple messages
@@ -535,7 +536,7 @@ describe('API Routes', () => {
       });
 
       it('should support before parameter for pagination', async () => {
-        const { token } = createTestAgent('BeforeAgent');
+        const { token } = await createTestAgent('BeforeAgent');
         const general = channelService.getByName('general');
 
         // Send multiple messages
@@ -567,7 +568,7 @@ describe('API Routes', () => {
 
     describe('POST /api/channels/:id/messages', () => {
       it('should send a message to a channel', async () => {
-        const { token } = createTestAgent('MessageSender');
+        const { token } = await createTestAgent('MessageSender');
         const general = channelService.getByName('general');
 
         const res = await request(app)
@@ -592,7 +593,7 @@ describe('API Routes', () => {
       });
 
       it('should return 400 when text is missing', async () => {
-        const { token } = createTestAgent('NoTextAgent');
+        const { token } = await createTestAgent('NoTextAgent');
         const general = channelService.getByName('general');
 
         const res = await request(app)
@@ -605,7 +606,7 @@ describe('API Routes', () => {
       });
 
       it('should send message with type and data', async () => {
-        const { token } = createTestAgent('TypedMessageAgent');
+        const { token } = await createTestAgent('TypedMessageAgent');
         const general = channelService.getByName('general');
 
         const res = await request(app)
@@ -622,7 +623,7 @@ describe('API Routes', () => {
       });
 
       it('should send message with threadId', async () => {
-        const { token } = createTestAgent('ThreadAgent');
+        const { token } = await createTestAgent('ThreadAgent');
         const general = channelService.getByName('general');
 
         // First send a parent message
@@ -644,7 +645,7 @@ describe('API Routes', () => {
       });
 
       it('should return 403 when sending to non-existent channel', async () => {
-        const { token } = createTestAgent('NonExistentChannelAgent');
+        const { token } = await createTestAgent('NonExistentChannelAgent');
 
         const res = await request(app)
           .post('/api/channels/ch-nonexistent/messages')
@@ -658,7 +659,7 @@ describe('API Routes', () => {
 
     describe('GET /api/threads/:id/messages', () => {
       it('should get thread messages', async () => {
-        const { token } = createTestAgent('ThreadReader');
+        const { token } = await createTestAgent('ThreadReader');
         const general = channelService.getByName('general');
 
         // Create parent message
@@ -697,8 +698,8 @@ describe('API Routes', () => {
 
     describe('POST /api/agents/:id/messages', () => {
       it('should send a direct message to another agent', async () => {
-        const { token: senderToken } = createTestAgent('DMSender');
-        const { agent: receiver } = createTestAgent('DMReceiver');
+        const { token: senderToken } = await createTestAgent('DMSender');
+        const { agent: receiver } = await createTestAgent('DMReceiver');
 
         const res = await request(app)
           .post(`/api/agents/${receiver.id}/messages`)
@@ -718,7 +719,7 @@ describe('API Routes', () => {
       });
 
       it('should return 401 without authentication', async () => {
-        const { agent: receiver } = createTestAgent('DMReceiverNoAuth');
+        const { agent: receiver } = await createTestAgent('DMReceiverNoAuth');
 
         const res = await request(app)
           .post(`/api/agents/${receiver.id}/messages`)
@@ -728,8 +729,8 @@ describe('API Routes', () => {
       });
 
       it('should return 400 when text is missing', async () => {
-        const { token } = createTestAgent('DMNoText');
-        const { agent: receiver } = createTestAgent('DMReceiverNoText');
+        const { token } = await createTestAgent('DMNoText');
+        const { agent: receiver } = await createTestAgent('DMReceiverNoText');
 
         const res = await request(app)
           .post(`/api/agents/${receiver.id}/messages`)
@@ -742,7 +743,7 @@ describe('API Routes', () => {
 
       it('should send DM to non-existent agent (no validation)', async () => {
         // Note: The API doesn't validate target agent exists - message is stored anyway
-        const { token } = createTestAgent('DMToNonExistent');
+        const { token } = await createTestAgent('DMToNonExistent');
 
         const res = await request(app)
           .post('/api/agents/agent-nonexistent/messages')
@@ -758,7 +759,7 @@ describe('API Routes', () => {
   describe('Presence Routes', () => {
     describe('GET /api/presence', () => {
       it('should list all presence info', async () => {
-        const { agent, token } = createTestAgent('PresenceAgent');
+        const { agent, token } = await createTestAgent('PresenceAgent');
 
         // Connect the agent
         await request(app)
@@ -784,7 +785,7 @@ describe('API Routes', () => {
 
     describe('POST /api/presence/connect', () => {
       it('should connect an agent', async () => {
-        const { token } = createTestAgent('ConnectAgent');
+        const { token } = await createTestAgent('ConnectAgent');
 
         const res = await request(app)
           .post('/api/presence/connect')
@@ -804,7 +805,7 @@ describe('API Routes', () => {
       });
 
       it('should handle double-connect idempotently', async () => {
-        const { token } = createTestAgent('DoubleConnectAgent');
+        const { token } = await createTestAgent('DoubleConnectAgent');
 
         // First connect
         const res1 = await request(app)
@@ -828,7 +829,7 @@ describe('API Routes', () => {
 
     describe('POST /api/presence/heartbeat', () => {
       it('should update heartbeat', async () => {
-        const { token } = createTestAgent('HeartbeatAgent');
+        const { token } = await createTestAgent('HeartbeatAgent');
 
         // First connect
         await request(app)
@@ -854,7 +855,7 @@ describe('API Routes', () => {
 
     describe('PUT /api/presence/status', () => {
       it('should update status', async () => {
-        const { token } = createTestAgent('StatusAgent');
+        const { token } = await createTestAgent('StatusAgent');
 
         // First connect
         await request(app)
@@ -882,7 +883,7 @@ describe('API Routes', () => {
 
     describe('POST /api/presence/typing', () => {
       it('should set typing indicator', async () => {
-        const { token } = createTestAgent('TypingAgent');
+        const { token } = await createTestAgent('TypingAgent');
         const general = channelService.getByName('general');
 
         // First connect
@@ -901,7 +902,7 @@ describe('API Routes', () => {
       });
 
       it('should return 400 when channelId is missing', async () => {
-        const { token } = createTestAgent('TypingNoChannel');
+        const { token } = await createTestAgent('TypingNoChannel');
 
         await request(app)
           .post('/api/presence/connect')
@@ -927,7 +928,7 @@ describe('API Routes', () => {
 
     describe('POST /api/presence/disconnect', () => {
       it('should disconnect an agent', async () => {
-        const { agent, token } = createTestAgent('DisconnectAgent');
+        const { agent, token } = await createTestAgent('DisconnectAgent');
 
         // First connect
         await request(app)
@@ -988,8 +989,8 @@ describe('API Routes', () => {
     });
 
     it('should accept valid tokens from different agents', async () => {
-      const { token: token1 } = createTestAgent('Agent1Auth');
-      const { token: token2 } = createTestAgent('Agent2Auth');
+      const { token: token1 } = await createTestAgent('Agent1Auth');
+      const { token: token2 } = await createTestAgent('Agent2Auth');
 
       const res1 = await request(app)
         .get('/api/agents/me')

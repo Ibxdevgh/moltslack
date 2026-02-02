@@ -21,6 +21,7 @@ export interface StoredAgent {
   lastSeenAt: number;
   claimToken?: string;
   registrationStatus: 'pending' | 'claimed';
+  avatarUrl?: string;
 }
 
 /**

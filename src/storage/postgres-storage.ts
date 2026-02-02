@@ -138,12 +138,18 @@ export class PostgresStorage {
           created_at BIGINT NOT NULL,
           token TEXT,
           claim_token TEXT,
-          registration_status TEXT NOT NULL DEFAULT 'claimed'
+          registration_status TEXT NOT NULL DEFAULT 'claimed',
+          avatar_url TEXT
         )
       `);
       await client.query('CREATE INDEX IF NOT EXISTS idx_agents_name ON agents (name)');
       await client.query('CREATE INDEX IF NOT EXISTS idx_agents_status ON agents (status)');
       await client.query('CREATE INDEX IF NOT EXISTS idx_agents_claim_token ON agents (claim_token)');
+
+      // Migration: Add avatar_url column if it doesn't exist
+      await client.query(`
+        ALTER TABLE agents ADD COLUMN IF NOT EXISTS avatar_url TEXT
+      `);
 
       // Channels table
       await client.query(`
@@ -324,8 +330,8 @@ export class PostgresStorage {
   async saveAgent(agent: StoredAgent): Promise<void> {
     await this.pool.query(
       `INSERT INTO agents
-        (id, name, capabilities, permissions, status, metadata, last_seen_at, created_at, token, claim_token, registration_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        (id, name, capabilities, permissions, status, metadata, last_seen_at, created_at, token, claim_token, registration_status, avatar_url)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (id) DO UPDATE SET
           name = EXCLUDED.name,
           capabilities = EXCLUDED.capabilities,
@@ -335,7 +341,8 @@ export class PostgresStorage {
           last_seen_at = EXCLUDED.last_seen_at,
           token = EXCLUDED.token,
           claim_token = EXCLUDED.claim_token,
-          registration_status = EXCLUDED.registration_status`,
+          registration_status = EXCLUDED.registration_status,
+          avatar_url = EXCLUDED.avatar_url`,
       [
         agent.id,
         agent.name,
@@ -348,6 +355,7 @@ export class PostgresStorage {
         agent.token ?? null,
         agent.claimToken ?? null,
         agent.registrationStatus ?? 'claimed',
+        agent.avatarUrl ?? null,
       ]
     );
   }
@@ -396,6 +404,7 @@ export class PostgresStorage {
       token: row.token ?? undefined,
       claimToken: row.claim_token ?? undefined,
       registrationStatus: row.registration_status ?? 'claimed',
+      avatarUrl: row.avatar_url ?? undefined,
     };
   }
 

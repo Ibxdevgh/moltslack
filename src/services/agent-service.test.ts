@@ -42,9 +42,9 @@ describe('AgentService', () => {
   });
 
   describe('register()', () => {
-    it('should register a new agent with minimal input', () => {
+    it('should register a new agent with minimal input', async () => {
       const registration = { name: 'TestAgent' };
-      const agent = agentService.register(registration);
+      const agent = await agentService.register(registration);
 
       expect(agent).toBeDefined();
       expect(agent.name).toBe('TestAgent');
@@ -57,36 +57,36 @@ describe('AgentService', () => {
       expect(agent.lastSeenAt).toBeDefined();
     });
 
-    it('should register a new agent with full input', () => {
+    it('should register a new agent with full input', async () => {
       const registration = {
         name: 'FullAgent',
         capabilities: ['code-execution', 'web-search'],
         metadata: { model: 'claude-3', version: '1.0' },
       };
-      const agent = agentService.register(registration);
+      const agent = await agentService.register(registration);
 
       expect(agent.name).toBe('FullAgent');
       expect(agent.capabilities).toEqual(['code-execution', 'web-search']);
       expect(agent.metadata).toEqual({ model: 'claude-3', version: '1.0' });
     });
 
-    it('should throw error when registering duplicate agent name', () => {
-      agentService.register({ name: 'DuplicateAgent' });
+    it('should throw error when registering duplicate agent name', async () => {
+      await agentService.register({ name: 'DuplicateAgent' });
 
-      expect(() => {
-        agentService.register({ name: 'DuplicateAgent' });
-      }).toThrow('Agent with name "DuplicateAgent" already exists');
+      await expect(
+        agentService.register({ name: 'DuplicateAgent' })
+      ).rejects.toThrow('Agent with name "DuplicateAgent" already exists');
     });
 
-    it('should call AuthService methods during registration', () => {
-      agentService.register({ name: 'AuthTestAgent' });
+    it('should call AuthService methods during registration', async () => {
+      await agentService.register({ name: 'AuthTestAgent' });
 
       expect(mockAuthService.createDefaultPermissions).toHaveBeenCalled();
       expect(mockAuthService.generateToken).toHaveBeenCalled();
     });
 
-    it('should set permissions from AuthService', () => {
-      const agent = agentService.register({ name: 'PermAgent' });
+    it('should set permissions from AuthService', async () => {
+      const agent = await agentService.register({ name: 'PermAgent' });
 
       expect(agent.permissions).toEqual([
         { resource: 'channel:*', actions: ['read', 'write'] },
@@ -97,8 +97,8 @@ describe('AgentService', () => {
   });
 
   describe('getById()', () => {
-    it('should return agent by ID', () => {
-      const registered = agentService.register({ name: 'GetByIdAgent' });
+    it('should return agent by ID', async () => {
+      const registered = await agentService.register({ name: 'GetByIdAgent' });
       const found = agentService.getById(registered.id);
 
       expect(found).toBeDefined();
@@ -114,8 +114,8 @@ describe('AgentService', () => {
   });
 
   describe('getByName()', () => {
-    it('should return agent by name', () => {
-      agentService.register({ name: 'GetByNameAgent' });
+    it('should return agent by name', async () => {
+      await agentService.register({ name: 'GetByNameAgent' });
       const found = agentService.getByName('GetByNameAgent');
 
       expect(found).toBeDefined();
@@ -136,10 +136,10 @@ describe('AgentService', () => {
       expect(agents).toEqual([]);
     });
 
-    it('should return all registered agents', () => {
-      agentService.register({ name: 'Agent1' });
-      agentService.register({ name: 'Agent2' });
-      agentService.register({ name: 'Agent3' });
+    it('should return all registered agents', async () => {
+      await agentService.register({ name: 'Agent1' });
+      await agentService.register({ name: 'Agent2' });
+      await agentService.register({ name: 'Agent3' });
 
       const agents = agentService.getAll();
 
@@ -149,19 +149,19 @@ describe('AgentService', () => {
   });
 
   describe('getOnline()', () => {
-    it('should return empty array when no agents are online', () => {
-      agentService.register({ name: 'OfflineAgent' });
+    it('should return empty array when no agents are online', async () => {
+      await agentService.register({ name: 'OfflineAgent' });
 
       const online = agentService.getOnline();
 
       expect(online).toEqual([]);
     });
 
-    it('should return only online/active/idle agents', () => {
-      const agent1 = agentService.register({ name: 'OnlineAgent' });
-      const agent2 = agentService.register({ name: 'ActiveAgent' });
-      const agent3 = agentService.register({ name: 'IdleAgent' });
-      agentService.register({ name: 'OfflineAgent' });
+    it('should return only online/active/idle agents', async () => {
+      const agent1 = await agentService.register({ name: 'OnlineAgent' });
+      const agent2 = await agentService.register({ name: 'ActiveAgent' });
+      const agent3 = await agentService.register({ name: 'IdleAgent' });
+      await agentService.register({ name: 'OfflineAgent' });
 
       agentService.updatePresence(agent1.id, 'online');
       agentService.updatePresence(agent2.id, 'active');
@@ -175,8 +175,8 @@ describe('AgentService', () => {
   });
 
   describe('updatePresence()', () => {
-    it('should update presence status', () => {
-      const agent = agentService.register({ name: 'PresenceAgent' });
+    it('should update presence status', async () => {
+      const agent = await agentService.register({ name: 'PresenceAgent' });
 
       const result = agentService.updatePresence(agent.id, 'online');
 
@@ -185,8 +185,8 @@ describe('AgentService', () => {
       expect(updated?.status).toBe('online');
     });
 
-    it('should update lastSeenAt on presence change', () => {
-      const agent = agentService.register({ name: 'PresenceTimeAgent' });
+    it('should update lastSeenAt on presence change', async () => {
+      const agent = await agentService.register({ name: 'PresenceTimeAgent' });
       const originalLastSeen = agent.lastSeenAt;
 
       agentService.updatePresence(agent.id, 'active');
@@ -201,8 +201,8 @@ describe('AgentService', () => {
       expect(result).toBe(false);
     });
 
-    it('should handle all presence status types', () => {
-      const agent = agentService.register({ name: 'AllStatusAgent' });
+    it('should handle all presence status types', async () => {
+      const agent = await agentService.register({ name: 'AllStatusAgent' });
       const statuses: PresenceStatus[] = ['online', 'active', 'idle', 'offline'];
 
       for (const status of statuses) {
@@ -214,8 +214,8 @@ describe('AgentService', () => {
   });
 
   describe('updateMetadata()', () => {
-    it('should update agent metadata', () => {
-      const agent = agentService.register({ name: 'MetadataAgent' });
+    it('should update agent metadata', async () => {
+      const agent = await agentService.register({ name: 'MetadataAgent' });
 
       const result = agentService.updateMetadata(agent.id, { newKey: 'newValue' });
 
@@ -224,8 +224,8 @@ describe('AgentService', () => {
       expect(updated?.metadata).toEqual({ newKey: 'newValue' });
     });
 
-    it('should merge with existing metadata', () => {
-      const agent = agentService.register({
+    it('should merge with existing metadata', async () => {
+      const agent = await agentService.register({
         name: 'MergeMetadataAgent',
         metadata: { existing: 'value' },
       });
@@ -247,8 +247,8 @@ describe('AgentService', () => {
   });
 
   describe('updatePermissions()', () => {
-    it('should update agent permissions', () => {
-      const agent = agentService.register({ name: 'PermissionsAgent' });
+    it('should update agent permissions', async () => {
+      const agent = await agentService.register({ name: 'PermissionsAgent' });
       const newPermissions: Permission[] = [
         { resource: '*', actions: ['admin'] },
       ];
@@ -260,8 +260,8 @@ describe('AgentService', () => {
       expect(updated?.permissions).toEqual(newPermissions);
     });
 
-    it('should regenerate token when permissions change', () => {
-      const agent = agentService.register({ name: 'TokenRegenAgent' });
+    it('should regenerate token when permissions change', async () => {
+      const agent = await agentService.register({ name: 'TokenRegenAgent' });
       vi.clearAllMocks();
 
       const newPermissions: Permission[] = [
@@ -280,8 +280,8 @@ describe('AgentService', () => {
   });
 
   describe('refreshToken()', () => {
-    it('should refresh agent token', () => {
-      const agent = agentService.register({ name: 'RefreshTokenAgent' });
+    it('should refresh agent token', async () => {
+      const agent = await agentService.register({ name: 'RefreshTokenAgent' });
       vi.clearAllMocks();
 
       const newToken = agentService.refreshToken(agent.id);
@@ -296,8 +296,8 @@ describe('AgentService', () => {
       expect(result).toBeNull();
     });
 
-    it('should update the stored token', () => {
-      const agent = agentService.register({ name: 'UpdatedTokenAgent' });
+    it('should update the stored token', async () => {
+      const agent = await agentService.register({ name: 'UpdatedTokenAgent' });
       (mockAuthService.generateToken as ReturnType<typeof vi.fn>).mockReturnValueOnce('new-token-456');
 
       agentService.refreshToken(agent.id);
@@ -308,8 +308,8 @@ describe('AgentService', () => {
   });
 
   describe('connect()', () => {
-    it('should mark agent as online', () => {
-      const agent = agentService.register({ name: 'ConnectAgent' });
+    it('should mark agent as online', async () => {
+      const agent = await agentService.register({ name: 'ConnectAgent' });
 
       const result = agentService.connect(agent.id);
 
@@ -325,8 +325,8 @@ describe('AgentService', () => {
   });
 
   describe('disconnect()', () => {
-    it('should mark agent as offline', () => {
-      const agent = agentService.register({ name: 'DisconnectAgent' });
+    it('should mark agent as offline', async () => {
+      const agent = await agentService.register({ name: 'DisconnectAgent' });
       agentService.connect(agent.id);
 
       const result = agentService.disconnect(agent.id);
@@ -343,8 +343,8 @@ describe('AgentService', () => {
   });
 
   describe('unregister()', () => {
-    it('should remove agent from registry', () => {
-      const agent = agentService.register({ name: 'UnregisterAgent' });
+    it('should remove agent from registry', async () => {
+      const agent = await agentService.register({ name: 'UnregisterAgent' });
 
       const result = agentService.unregister(agent.id);
 
@@ -352,19 +352,19 @@ describe('AgentService', () => {
       expect(agentService.getById(agent.id)).toBeUndefined();
     });
 
-    it('should remove agent from name index', () => {
-      const agent = agentService.register({ name: 'UnregisterNameAgent' });
+    it('should remove agent from name index', async () => {
+      const agent = await agentService.register({ name: 'UnregisterNameAgent' });
 
       agentService.unregister(agent.id);
 
       expect(agentService.getByName('UnregisterNameAgent')).toBeUndefined();
     });
 
-    it('should allow re-registering same name after unregister', () => {
-      const agent1 = agentService.register({ name: 'ReRegisterAgent' });
+    it('should allow re-registering same name after unregister', async () => {
+      const agent1 = await agentService.register({ name: 'ReRegisterAgent' });
       agentService.unregister(agent1.id);
 
-      const agent2 = agentService.register({ name: 'ReRegisterAgent' });
+      const agent2 = await agentService.register({ name: 'ReRegisterAgent' });
 
       expect(agent2).toBeDefined();
       expect(agent2.name).toBe('ReRegisterAgent');
@@ -383,16 +383,16 @@ describe('AgentService', () => {
       expect(agentService.getCount()).toBe(0);
     });
 
-    it('should return correct count of agents', () => {
-      agentService.register({ name: 'CountAgent1' });
-      agentService.register({ name: 'CountAgent2' });
+    it('should return correct count of agents', async () => {
+      await agentService.register({ name: 'CountAgent1' });
+      await agentService.register({ name: 'CountAgent2' });
 
       expect(agentService.getCount()).toBe(2);
     });
 
-    it('should decrease count after unregister', () => {
-      const agent = agentService.register({ name: 'CountDecreaseAgent' });
-      agentService.register({ name: 'CountStayAgent' });
+    it('should decrease count after unregister', async () => {
+      const agent = await agentService.register({ name: 'CountDecreaseAgent' });
+      await agentService.register({ name: 'CountStayAgent' });
 
       agentService.unregister(agent.id);
 
@@ -401,8 +401,8 @@ describe('AgentService', () => {
   });
 
   describe('validateToken()', () => {
-    it('should return agent for valid token', () => {
-      const registered = agentService.register({ name: 'ValidateTokenAgent' });
+    it('should return agent for valid token', async () => {
+      const registered = await agentService.register({ name: 'ValidateTokenAgent' });
       // Update mock to return the correct agent ID
       (mockAuthService.verifyToken as ReturnType<typeof vi.fn>).mockReturnValue({
         agentId: registered.id,
@@ -440,8 +440,8 @@ describe('AgentService', () => {
       expect(agent).toBeNull();
     });
 
-    it('should return null when stored token does not match', () => {
-      const registered = agentService.register({ name: 'MismatchTokenAgent' });
+    it('should return null when stored token does not match', async () => {
+      const registered = await agentService.register({ name: 'MismatchTokenAgent' });
       (mockAuthService.verifyToken as ReturnType<typeof vi.fn>).mockReturnValue({
         agentId: registered.id,
         agentName: 'MismatchTokenAgent',
@@ -457,34 +457,34 @@ describe('AgentService', () => {
   });
 
   describe('edge cases', () => {
-    it('should handle empty string name', () => {
-      const agent = agentService.register({ name: '' });
+    it('should handle empty string name', async () => {
+      const agent = await agentService.register({ name: '' });
 
       expect(agent.name).toBe('');
     });
 
-    it('should handle special characters in name', () => {
-      const agent = agentService.register({ name: 'Agent@#$%^&*()' });
+    it('should handle special characters in name', async () => {
+      const agent = await agentService.register({ name: 'Agent@#$%^&*()' });
 
       expect(agent.name).toBe('Agent@#$%^&*()');
       expect(agentService.getByName('Agent@#$%^&*()')).toBeDefined();
     });
 
-    it('should handle very long name', () => {
+    it('should handle very long name', async () => {
       const longName = 'A'.repeat(1000);
-      const agent = agentService.register({ name: longName });
+      const agent = await agentService.register({ name: longName });
 
       expect(agent.name).toBe(longName);
     });
 
-    it('should handle unicode characters in name', () => {
-      const agent = agentService.register({ name: 'Agent-日本語-🚀' });
+    it('should handle unicode characters in name', async () => {
+      const agent = await agentService.register({ name: 'Agent-日本語-🚀' });
 
       expect(agent.name).toBe('Agent-日本語-🚀');
       expect(agentService.getByName('Agent-日本語-🚀')).toBeDefined();
     });
 
-    it('should handle complex metadata objects', () => {
+    it('should handle complex metadata objects', async () => {
       const complexMetadata = {
         nested: {
           deeply: {
@@ -495,7 +495,7 @@ describe('AgentService', () => {
         mixed: [{ key: 'value' }, 'string', 42],
       };
 
-      const agent = agentService.register({
+      const agent = await agentService.register({
         name: 'ComplexMetadataAgent',
         metadata: complexMetadata,
       });

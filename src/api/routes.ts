@@ -98,7 +98,7 @@ export function createRoutes(services: Services): Router {
   // Agent claims a pending registration
   router.post('/agents/claim', async (req: Request, res: Response) => {
     try {
-      const { claimToken, capabilities } = req.body;
+      const { claimToken, capabilities, avatarUrl } = req.body;
 
       if (!claimToken) {
         return res.status(400).json({
@@ -107,7 +107,7 @@ export function createRoutes(services: Services): Router {
         });
       }
 
-      const agent = await agentService.claimRegistration(claimToken, capabilities);
+      const agent = await agentService.claimRegistration(claimToken, capabilities, avatarUrl);
 
       res.status(200).json({
         success: true,
@@ -118,6 +118,7 @@ export function createRoutes(services: Services): Router {
           capabilities: agent.capabilities,
           status: agent.status,
           createdAt: agent.createdAt,
+          avatarUrl: agent.avatarUrl,
         },
       });
     } catch (error: any) {
@@ -183,8 +184,67 @@ export function createRoutes(services: Services): Router {
         capabilities: agent.capabilities,
         status: agent.status,
         metadata: agent.metadata,
+        avatarUrl: agent.avatarUrl,
       },
     });
+  });
+
+  // Update current agent's avatar (authenticated)
+  router.put('/agents/me/avatar', authService.middleware(), async (req: Request, res: Response) => {
+    try {
+      const agent = agentService.getById(req.agent!.agentId);
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: 'Agent not found' },
+        });
+      }
+
+      const { avatarUrl } = req.body;
+
+      if (typeof avatarUrl !== 'string' && avatarUrl !== null) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_INPUT', message: 'avatarUrl must be a string or null' },
+        });
+      }
+
+      // Update avatar URL
+      agent.avatarUrl = avatarUrl || undefined;
+
+      // Save to storage
+      if (storage) {
+        await storage.saveAgent({
+          id: agent.id,
+          name: agent.name,
+          capabilities: agent.capabilities,
+          permissions: agent.permissions as { resource: string; actions: string[] }[],
+          status: agent.status,
+          metadata: agent.metadata,
+          lastSeenAt: agent.lastSeenAt,
+          createdAt: agent.createdAt,
+          token: agent.token,
+          claimToken: agent.claimToken,
+          registrationStatus: agent.registrationStatus,
+          avatarUrl: agent.avatarUrl,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: agent.id,
+          name: agent.name,
+          avatarUrl: agent.avatarUrl,
+          message: 'Avatar updated successfully',
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_FAILED', message: error.message },
+      });
+    }
   });
 
   // List all agents (read-only for dashboard)
@@ -195,6 +255,7 @@ export function createRoutes(services: Services): Router {
       status: a.status,
       capabilities: a.capabilities,
       lastSeenAt: a.lastSeenAt,
+      avatarUrl: a.avatarUrl,
     }));
 
     res.json({ success: true, data: agents });
@@ -688,6 +749,7 @@ export function createRoutes(services: Services): Router {
           token: agent.token,
           claimToken: agent.claimToken,
           registrationStatus: agent.registrationStatus,
+          avatarUrl: agent.avatarUrl,
         });
       }
 
@@ -698,6 +760,76 @@ export function createRoutes(services: Services): Router {
           name: agent.name,
           capabilities: agent.capabilities,
           message: 'Capabilities updated successfully',
+        },
+      });
+    } catch (error: any) {
+      res.status(500).json({
+        success: false,
+        error: { code: 'UPDATE_FAILED', message: error.message },
+      });
+    }
+  });
+
+  // Update agent avatar (admin - requires secret key)
+  router.put('/admin/agents/:name/avatar', async (req: Request, res: Response) => {
+    const adminKey = req.headers['x-admin-key'];
+    const expectedKey = process.env.ADMIN_KEY;
+
+    if (!expectedKey || adminKey !== expectedKey) {
+      return res.status(403).json({
+        success: false,
+        error: { code: 'FORBIDDEN', message: 'Invalid admin key' },
+      });
+    }
+
+    try {
+      const agentName = str(req.params.name);
+      const { avatarUrl } = req.body;
+
+      if (typeof avatarUrl !== 'string') {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'INVALID_INPUT', message: 'avatarUrl must be a string' },
+        });
+      }
+
+      const agent = agentService.getByName(agentName);
+
+      if (!agent) {
+        return res.status(404).json({
+          success: false,
+          error: { code: 'NOT_FOUND', message: `Agent "${agentName}" not found` },
+        });
+      }
+
+      // Update avatar URL
+      agent.avatarUrl = avatarUrl;
+
+      // Save to storage
+      if (storage) {
+        await storage.saveAgent({
+          id: agent.id,
+          name: agent.name,
+          capabilities: agent.capabilities,
+          permissions: agent.permissions as { resource: string; actions: string[] }[],
+          status: agent.status,
+          metadata: agent.metadata,
+          lastSeenAt: agent.lastSeenAt,
+          createdAt: agent.createdAt,
+          token: agent.token,
+          claimToken: agent.claimToken,
+          registrationStatus: agent.registrationStatus,
+          avatarUrl: agent.avatarUrl,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          id: agent.id,
+          name: agent.name,
+          avatarUrl: agent.avatarUrl,
+          message: 'Avatar URL updated successfully',
         },
       });
     } catch (error: any) {

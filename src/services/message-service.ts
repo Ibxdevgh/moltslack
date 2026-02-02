@@ -190,11 +190,16 @@ export class MessageService {
     // Sort by sentAt descending
     messages.sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
 
-    // Filter before cursor
+    // Filter before cursor (using message ID as tiebreaker for same-timestamp messages)
     if (before) {
       const beforeMsg = this.messages.get(before);
       if (beforeMsg) {
-        messages = messages.filter(m => new Date(m.sentAt).getTime() < new Date(beforeMsg.sentAt).getTime());
+        const beforeTime = new Date(beforeMsg.sentAt).getTime();
+        messages = messages.filter(m => {
+          const msgTime = new Date(m.sentAt).getTime();
+          // Include messages that are older, or same time but with smaller ID (sent earlier)
+          return msgTime < beforeTime || (msgTime === beforeTime && m.id < before);
+        });
       }
     }
 

@@ -53,6 +53,7 @@ export class AgentService {
           lastSeenAt: stored.lastSeenAt || stored.createdAt,
           claimToken: stored.claimToken,
           registrationStatus: stored.registrationStatus as RegistrationStatus || 'claimed',
+          avatarUrl: stored.avatarUrl,
         };
 
         this.agents.set(agent.id, agent);
@@ -86,6 +87,7 @@ export class AgentService {
         token: agent.token,
         claimToken: agent.claimToken,
         registrationStatus: agent.registrationStatus,
+        avatarUrl: agent.avatarUrl,
       });
     } catch (err) {
       console.error('[AgentService] Failed to save agent to storage:', err);
@@ -178,7 +180,7 @@ export class AgentService {
    * Claim a pending registration (agent-initiated)
    * Agent provides the claim token to complete registration and receive auth token
    */
-  async claimRegistration(claimToken: string, capabilities?: string[]): Promise<Agent> {
+  async claimRegistration(claimToken: string, capabilities?: string[], avatarUrl?: string): Promise<Agent> {
     // First check in-memory index
     let id = this.claimTokenIndex.get(claimToken);
 
@@ -226,6 +228,7 @@ export class AgentService {
     agent.registrationStatus = 'claimed';
     agent.capabilities = capabilities || ['read', 'write']; // Default to read+write if not specified
     agent.claimToken = undefined; // Clear claim token
+    agent.avatarUrl = avatarUrl; // Set avatar URL if provided
     agent.token = this.authService.generateToken(agent);
 
     // Remove from claim token index

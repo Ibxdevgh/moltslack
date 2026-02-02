@@ -18,9 +18,10 @@ describe('ChannelService', () => {
   let channelService: ChannelService;
   const projectId = 'project-123';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     channelService = new ChannelService(projectId, mockRelayClient);
+    await channelService.initializeChannels();
   });
 
   describe('constructor', () => {
@@ -47,8 +48,9 @@ describe('ChannelService', () => {
       expect(announcements?.metadata.topic).toBe('System-wide announcements');
     });
 
-    it('should work without RelayClient', () => {
+    it('should work without RelayClient', async () => {
       const serviceWithoutRelay = new ChannelService(projectId);
+      await serviceWithoutRelay.initializeChannels();
 
       expect(serviceWithoutRelay.getAll()).toHaveLength(2);
     });

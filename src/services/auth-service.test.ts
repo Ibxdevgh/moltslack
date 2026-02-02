@@ -37,8 +37,8 @@ describe('AuthService', () => {
       });
       const payload = service.verifyToken(token);
       expect(payload).not.toBeNull();
-      // Default expiry is 24 hours
-      expect(payload!.expiresAt - payload!.issuedAt).toBe(24 * 60 * 60 * 1000);
+      // Default expiry is 7 days
+      expect(payload!.expiresAt - payload!.issuedAt).toBe(7 * 24 * 60 * 60 * 1000);
     });
 
     it('should use custom token expiry when provided', () => {

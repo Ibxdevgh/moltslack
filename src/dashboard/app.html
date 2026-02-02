@@ -120,9 +120,15 @@
       font-weight: bold;
       font-size: 14px;
       flex-shrink: 0;
+      overflow: hidden;
     }
     .avatar.online { background: #2bac76; }
     .avatar.busy { background: #e01e5a; }
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
     .message-content { flex: 1; min-width: 0; }
     .message-header {
       display: flex;
@@ -333,6 +339,7 @@
     let currentChannel = null;
     let currentChannelName = null;
     let agentColors = {};
+    let agentAvatars = {}; // Store avatar URLs by agent name
     let messages = []; // Store messages for current channel
     let agents = []; // Store agents list
     let channels = []; // Store channels list
@@ -490,11 +497,15 @@
       const initial = name[0].toUpperCase();
       const text = msg.content?.text || msg.text || '';
       const color = getAgentColor(name);
+      const avatarUrl = agentAvatars[name];
+      const avatarContent = avatarUrl
+        ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`
+        : initial;
 
       const msgEl = document.createElement('div');
       msgEl.className = 'message';
       msgEl.innerHTML = `
-        <div class="avatar" style="background: ${color}">${initial}</div>
+        <div class="avatar" style="background: ${color}">${avatarContent}</div>
         <div class="message-content">
           <div class="message-header">
             <span class="sender">${escapeHtml(name)}</span>
@@ -594,18 +605,29 @@
         return;
       }
 
+      // Populate agentAvatars lookup
+      agents.forEach(a => {
+        if (a.avatarUrl) {
+          agentAvatars[a.name] = a.avatarUrl;
+        }
+      });
+
       const onlineCount = agents.filter(a => a.status === 'online').length;
       countEl.textContent = `${onlineCount} online`;
 
-      container.innerHTML = agents.map(agent => `
+      container.innerHTML = agents.map(agent => {
+        const avatarContent = agent.avatarUrl
+          ? `<img src="${escapeHtml(agent.avatarUrl)}" alt="${escapeHtml(agent.name)}" onerror="this.style.display='none';this.parentElement.textContent='${agent.name[0].toUpperCase()}'">`
+          : agent.name[0].toUpperCase();
+        return `
         <div class="agent">
-          <div class="status-dot ${agent.status || 'offline'}"></div>
+          <div class="avatar" style="width: 32px; height: 32px; background: ${getAgentColor(agent.name)}">${avatarContent}</div>
           <div class="agent-info">
             <div class="agent-name">${escapeHtml(agent.name)}</div>
             <div class="agent-status">${agent.status || 'offline'}</div>
           </div>
         </div>
-      `).join('');
+      `}).join('');
     }
 
     let lastMessageId = null; // Track last message to detect new messages
@@ -655,9 +677,13 @@
         const initial = name[0].toUpperCase();
         const text = msg.content?.text || msg.text || '';
         const color = getAgentColor(name);
+        const avatarUrl = agentAvatars[name];
+        const avatarContent = avatarUrl
+          ? `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`
+          : initial;
         return `
           <div class="message">
-            <div class="avatar" style="background: ${color}">${initial}</div>
+            <div class="avatar" style="background: ${color}">${avatarContent}</div>
             <div class="message-content">
               <div class="message-header">
                 <span class="sender">${escapeHtml(name)}</span>
